@@ -80,7 +80,7 @@ class GitProject:
 		return self.Modifications.isDirty()
 	
 	def isSane(self):
-		return (self.ReleaseBranch and self.ReleaseTagged and not self.isDangerous()) or (not self.ReleaseBranch and not self.ReleaseTagged)
+		return (self.ReleaseBranch and self.ReleaseTagged and not self.isDangerous()) or not self.ReleaseBranch
 	
 	def getVersionString(self):
 		Qualifier = self.RepoTokens.branch
@@ -145,7 +145,8 @@ class GitProject:
 		if self.ReleaseBranch:
 			return self.getVersionString()
 		else:
-			return "%d.%d-SNAPSHOT"%(self.RepoTokens.major,self.RepoTokens.minor)
+			MinorVer = self.RepoTokens.minor if not self.ReleaseTagged else self.RepoTokens.minor+1
+			return "%d.%d-SNAPSHOT"%(self.RepoTokens.major,MinorVer)
 
 if __name__ == "__main__":
 	try:
