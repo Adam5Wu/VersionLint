@@ -3,7 +3,7 @@ Automatic Repository Version Generation Utility
 
 # Requirements
 1. The respository uses release branches, with a fixed prefix
-  By default, the prefix is 're-', customizable on API interface
+  By default, the prefix is 'rel-', customizable on API interface
 2. The repository uses annotated tags for release versions and milestones, with format `(prefix)(major).(minor)`
   - For release, default prefix is 'v'
   - For milestone, default prefix is 'm'
