@@ -79,11 +79,11 @@ class GitProject:
 		
 		self.RepoTokens.state = 'dirty' if self.Modifications.isDirty() else None
 	
-	def isDangerous(self):
+	def isVolatile(self):
 		return self.Modifications.isDirty()
 	
 	def isSane(self):
-		return (self.ReleaseBranch and self.ReleaseTagged and not self.isDangerous()) or not self.ReleaseBranch
+		return (self.ReleaseBranch and self.ReleaseTagged and not self.isVolatile()) or not self.ReleaseBranch
 	
 	def getVersionString(self):
 		Qualifier = self.RepoTokens.branch
