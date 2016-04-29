@@ -21,25 +21,28 @@ class GitProject:
 	Modifications = None
 	
 	class ModTracker:
+		name = None
                 untracked = -1
-                unstaged =  -1,
+                unstaged =  -1
                 uncommitted =  -1
-		submodules = []
+		submodules = None
 		
-		def __init__(self, repo):
+		def __init__(self, repo, name):
+			self.name = name
 			self.untracked = len(repo.untracked_files)
 			self.unstaged = len(repo.index.diff(None))
 			self.uncommitted = len(repo.index.diff('HEAD'))
 			
+			self.submodules = []
 			for submodule in repo.submodules:
-				submod = ModTracker(submodule.module().working_tree_dir)
+				submod = self.__class__(submodule.module(), submodule.name)
 				if submod.isDirty():
 					self.unstaged-= 1
 					self.submodules.append(submod)
 		
 		def isDirty(self):
 			return self.untracked+self.unstaged+self.uncommitted+len(self.submodules) > 0
-
+	
 	def __init__(self, rootdir, relbranchpfx='rel-', accepttagpfx = ('v','m')):
 		for pfx in accepttagpfx:
 			if len(pfx) != 1:
@@ -72,7 +75,7 @@ class GitProject:
 		self.RepoTokens.commits = int(desctokens.group(3))
 		self.RepoTokens.hashcode = desctokens.group(4)
 		
-		self.Modifications = self.ModTracker(repo)
+		self.Modifications = self.ModTracker(repo,'.')
 		
 		self.RepoTokens.state = 'dirty' if self.Modifications.isDirty() else None
 	
@@ -156,6 +159,7 @@ if __name__ == "__main__":
 		SHOW_NUMVER = 'NumVer'
 		SHOW_MVNVER = 'MvnVer'
 		SHOW_FLAGS = 'Flags'
+		SHOW_DIRT = 'Dirt'
 		
 		ops = sys.argv[1:] if len(sys.argv) > 1 else (SHOW_VER,SHOW_FLAGS)
 		
@@ -168,9 +172,24 @@ if __name__ == "__main__":
 				print Proj.getMavenVersionString()
 			elif op.upper() == SHOW_FLAGS.upper():
 				print Proj.explainQualifierFlags(Proj.getQualifierFlags())
+			elif op.upper() == SHOW_DIRT.upper():
+				def PrintMods(mod,level=0):
+					if mod.untracked:
+						print "%s%d untracked files"%(' '*level,mod.untracked)
+					if mod.unstaged:
+						print "%s%d unstaged changes"%(' '*level,mod.unstaged)
+					if mod.uncommitted:
+						print "%s%d uncommitted changes"%(' '*level,mod.uncommitted)
+					for submod in mod.submodules:
+						print "%sSubmodule '%s':"%(' '*level,submod.name)
+						PrintMods(submod,level+1)
+				
+				PrintMods(Proj.Modifications)
 			else:
 				raise Exception("Unknown request '%s'"%op)
 	except Exception as e:
 		print >>sys.stderr, "Error: %s"%str(e)
+		#import traceback
+		#traceback.print_exc()
 		sys.exit(-1)
 
