@@ -1,5 +1,5 @@
 #=============================================================================
-## Automatic Repository Version Generation Utility
+## Repository Version Generation Utility
 ## Author: Zhenyu Wu
 ## Revision 1: Apr 28. 2016 - Initial Implementation
 #=============================================================================
@@ -11,6 +11,7 @@ class GitProject:
 		'prefix': '?',
 		'major': -1,
 		'minor': -1,
+		'extension': '?',
 		'commits': -1,
 		'hashcode': '?',
 		'branch': '?',
@@ -52,7 +53,15 @@ class GitProject:
 		from git import Repo
 		repo = Repo(rootdir)
 		
-		BRANCH = repo.active_branch.name
+		# Check for detached head
+		if repo.head.is_detached:
+			# We assume we are running with GitLab-CI
+			import os
+			BRANCH = os.environ.get('CI_BUILD_REF_NAME')
+			if BRANCH is None:
+				raise Exception('Unable to determine branch in detached head mode')
+		else:
+			BRANCH = repo.active_branch.name
 		self.RepoTokens.branch = BRANCH
 		self.ReleaseBranch = BRANCH.startswith(relbranchpfx)
 		
@@ -65,15 +74,21 @@ class GitProject:
 			raise Exception("Tag '%s' with unacceptable prefix"%DESC)
 		self.ReleaseTagged = self.RepoTokens.prefix == reltagpfx
 		
+		tokenptn = '^(\d+)\\.(\d+)()\\-(\d+)\\-g(.+)$'
+		if not self.ReleaseTagged:
+			# Non-release pattern allows for extension
+			tokenptn = '^(\d+)\\.(\d+)(-.+)?\\-(\d+)\\-g(.+)$'
+		
 		import re
-		desctokens = re.match('(\d+)\\.(\d+)\\-(\d+)\\-g(.*)', DESC[len(pfx):])
+		desctokens = re.match(tokenptn, DESC[len(pfx):])
 		if desctokens is None:
 			raise Exception("Malformed tag content '%s'"%DESC)
 		
 		self.RepoTokens.major = int(desctokens.group(1))
 		self.RepoTokens.minor = int(desctokens.group(2))
-		self.RepoTokens.commits = int(desctokens.group(3))
-		self.RepoTokens.hashcode = desctokens.group(4)
+		self.RepoTokens.extension = '' if desctokens.group(3) is None else desctokens.group(3)
+		self.RepoTokens.commits = int(desctokens.group(4))
+		self.RepoTokens.hashcode = desctokens.group(5)
 		
 		self.Modifications = self.ModTracker(repo,'.')
 		
@@ -83,12 +98,14 @@ class GitProject:
 		return self.Modifications.isDirty()
 	
 	def isSane(self):
-		return (self.ReleaseBranch and self.ReleaseTagged and not self.isVolatile()) or not self.ReleaseBranch
+		return	(self.ReleaseBranch and self.ReleaseTagged and
+			 not self.RepoTokens.extension and not self.isVolatile()
+			) or not self.ReleaseBranch
 	
 	def getVersionString(self):
 		Qualifier = self.RepoTokens.branch
 		if not self.ReleaseTagged:
-			Qualifier+= '.' + self.RepoTokens.prefix
+			Qualifier+= '.' + self.RepoTokens.prefix + self.RepoTokens.extension
 		if self.RepoTokens.state is not None:
 			Qualifier+= '.' + self.RepoTokens.state
 		return "%d.%d.%d-%s"%(self.RepoTokens.major,self.RepoTokens.minor,self.RepoTokens.commits,Qualifier)
@@ -149,19 +166,28 @@ class GitProject:
 			return self.getVersionString()
 		else:
 			MinorVer = self.RepoTokens.minor if not self.ReleaseTagged else self.RepoTokens.minor+1
-			return "%d.%d-SNAPSHOT"%(self.RepoTokens.major,MinorVer)
+			return "%d.%d-%s%s-SNAPSHOT"%(self.RepoTokens.major,MinorVer,self.RepoTokens.branch,self.RepoTokens.extension)
 
 if __name__ == "__main__":
 	try:
 		Proj = GitProject('.')
 		
+		ABOUT = '?'
 		SHOW_VER = 'Ver'
 		SHOW_NUMVER = 'NumVer'
 		SHOW_MVNVER = 'MvnVer'
 		SHOW_FLAGS = 'Flags'
 		SHOW_DIRT = 'Dirt'
 		
+		allops = (SHOW_VER,SHOW_NUMVER,SHOW_MVNVER,SHOW_FLAGS,SHOW_DIRT)
 		ops = sys.argv[1:] if len(sys.argv) > 1 else (SHOW_VER,SHOW_FLAGS)
+		
+		if ABOUT in ops:
+			Package_Info = __import__("Package_Info", globals(), locals(), [])
+			print >>sys.stderr, Package_Info.DISPLAYNAME
+			print >>sys.stderr, Package_Info.VERSION
+			print >>sys.stderr, "\nAccept arguments: '%s'"%"','".join(allops)
+			sys.exit(1)
 		
 		for op in ops:
 			if op.upper() == SHOW_VER.upper():

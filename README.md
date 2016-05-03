@@ -4,9 +4,9 @@ Automatic Repository Version Generation Utility
 # Requirements
 1. The respository uses release branches, with a fixed prefix
   By default, the prefix is 'rel-', customizable on API interface
-2. The repository uses annotated tags for release versions and milestones, with format `(prefix)(major).(minor)`
-  - For release, default prefix is 'v'
-  - For milestone, default prefix is 'm'
+2. The repository uses annotated tags for release versions and milestones:
+  - For release, tag is formatted as `v(major).(minor)`
+  - For milestone, the tag is formatted as `m(major).(minor)[-extension]`
   - Prefix are customizable on API interface, but can only be a single character
   - Both major and minor tokens must be natrual numbers
 
@@ -17,7 +17,7 @@ python VersionLint.py [<token> <token> ...]
 ```
 
 Possible tokens (case insensitive):
-1. Ver: Casual version string `(major).(minor).(commit)-(branch)[.(prefix)][.(state)]`
+1. Ver: Casual version string `(major).(minor).(commit)-(branch)[.(prefix)(-extension)][.(state)]`
   - The commit token is the number of commit from the last annotated tag
   - The branch token is the name of the active branch
   - The prefix token exists if the last annotated tag has non-release prefix
@@ -38,8 +38,8 @@ Possible tokens (case insensitive):
     - If requirement met: `(major).(minor).(commit)-(branch)`
     - Otherwise, fail with error message and non-zero return value
   - On a non-release branch
-    - If last annotated tag has release prefix: `(major).(minor+1)-SNAPSHOT`
-    - Otherwise: `(major).(minor)-SNAPSHOT`
+    - If last annotated tag has release prefix: `(major).(minor+1)-(branch)[-extension]-SNAPSHOT`
+    - Otherwise: `(major).(minor)-(branch)[-extension]-SNAPSHOT`
 4. Flags: Provide text description of the current repository status:
   Will output following if applicable
   - "Release branch" / "Non-release branch"
@@ -65,6 +65,7 @@ proj = VersionLint.GitProject("path-to-project-root")
     - `prefix`
     - `major`
     - `minor`
+    - `extension`
     - `commits`
     - `hashcode`
     - `branch`
