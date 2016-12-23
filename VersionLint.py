@@ -65,7 +65,7 @@ class GitProject:
 		self.RepoTokens.branch = BRANCH
 		self.ReleaseBranch = BRANCH.startswith(relbranchpfx)
 		
-		DESC = repo.git.describe('--long')
+		DESC = repo.git.describe('--long', '--abbrev=64', '--first-parent')
 		self.RepoTokens.prefix = None
 		for pfx in accepttagpfx:
 			if DESC.startswith(pfx):
@@ -160,7 +160,7 @@ class GitProject:
 	
 	def getMavenVersionString(self):
 		if not self.isSane():
-			raise Exception("Insane version configuration")
+			raise Exception("Insane repository state")
 		
 		if self.ReleaseBranch:
 			return self.getVersionString()
@@ -169,6 +169,11 @@ class GitProject:
 			return "%d.%d-%s%s-SNAPSHOT"%(self.RepoTokens.major,MinorVer,self.RepoTokens.branch,self.RepoTokens.extension)
 
 if __name__ == "__main__":
+	import colorama
+	from termcolor import colored
+	
+	colorama.init()
+	
 	try:
 		Proj = GitProject('.')
 		
@@ -177,15 +182,17 @@ if __name__ == "__main__":
 		SHOW_NUMVER = 'NumVer'
 		SHOW_MVNVER = 'MvnVer'
 		SHOW_FLAGS = 'Flags'
+		SHOW_HASH = 'Hash'
+		SHOW_BRANCH = 'Branch'
 		SHOW_DIRT = 'Dirt'
 		
-		allops = (SHOW_VER,SHOW_NUMVER,SHOW_MVNVER,SHOW_FLAGS,SHOW_DIRT)
+		allops = (SHOW_VER,SHOW_NUMVER,SHOW_MVNVER,SHOW_FLAGS,SHOW_HASH,SHOW_BRANCH,SHOW_DIRT)
 		ops = sys.argv[1:] if len(sys.argv) > 1 else (SHOW_VER,SHOW_FLAGS)
 		
 		if ABOUT in ops:
 			Package_Info = __import__("Package_Info", globals(), locals(), [])
-			print >>sys.stderr, Package_Info.DISPLAYNAME
-			print >>sys.stderr, Package_Info.VERSION
+			print >>sys.stderr, colored(Package_Info.DISPLAYNAME,'white')
+			print >>sys.stderr, colored(Package_Info.VERSION,'white')
 			print >>sys.stderr, "\nAccept arguments: '%s'"%"','".join(allops)
 			sys.exit(1)
 		
@@ -197,7 +204,11 @@ if __name__ == "__main__":
 			elif op.upper() == SHOW_MVNVER.upper():
 				print Proj.getMavenVersionString()
 			elif op.upper() == SHOW_FLAGS.upper():
-				print Proj.explainQualifierFlags(Proj.getQualifierFlags())
+				print colored(Proj.explainQualifierFlags(Proj.getQualifierFlags()),'yellow')
+			elif op.upper() == SHOW_HASH.upper():
+				print Proj.RepoTokens.hashcode
+			elif op.upper() == SHOW_BRANCH.upper():
+				print Proj.RepoTokens.branch
 			elif op.upper() == SHOW_DIRT.upper():
 				def PrintMods(mod,level=0):
 					if mod.untracked:
@@ -214,7 +225,7 @@ if __name__ == "__main__":
 			else:
 				raise Exception("Unknown request '%s'"%op)
 	except Exception as e:
-		print >>sys.stderr, "Error: %s"%str(e)
+		print >>sys.stderr, colored("Error: %s"%str(e), 'red')
 		#import traceback
 		#traceback.print_exc()
 		sys.exit(-1)
